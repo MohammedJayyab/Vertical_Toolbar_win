@@ -1,0 +1,174 @@
+﻿														   using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
+using IWshRuntimeLibrary;
+
+namespace Vertical_Toolbar_win
+{
+    public class VerticalToolbar : Form
+    {
+        private List<string> shortcuts;
+        private Button pinButton;
+        private bool isPinned = true;
+
+        public VerticalToolbar()
+        {
+            // Set form properties for a modern look and positioning
+            this.Text = "Custom Toolbar";
+            this.FormBorderStyle = FormBorderStyle.None;
+            this.Width = 130; // Increased width for more shortcut spacing
+            this.Height = Screen.PrimaryScreen.Bounds.Height - 100; // Full height of the screen
+            this.BackColor = Color.FromArgb(50, 50, 50); // Default background color
+            this.StartPosition = FormStartPosition.Manual;
+            this.TopMost = isPinned;
+
+            // Position window exactly at the top-right corner without offsets
+            this.Load += (s, e) => this.Location = new Point(Screen.PrimaryScreen.Bounds.Width - this.Width + 60, Screen.PrimaryScreen.Bounds.Top);
+
+            // Add rounded corners to the toolbar window
+            this.Region = System.Drawing.Region.FromHrgn(CreateRoundRectRgn(0, 0, Width, Height, 20, 20));
+
+            // Close button in the top-right corner
+            Button closeButton = new Button
+            {
+                Text = "✕",
+                FlatStyle = FlatStyle.Flat,
+                Size = new Size(30, 30),
+                ForeColor = Color.White,
+                BackColor = Color.FromArgb(150, 50, 50),
+                Location = new Point(this.Width - 35, 5), // Position close button near right edge
+                Cursor = Cursors.Hand
+            };
+            closeButton.FlatAppearance.BorderSize = 0;
+            closeButton.Click += (s, e) => this.Close();
+            this.Controls.Add(closeButton);
+
+            // Pin button to toggle "Always on Top" visibility
+            pinButton = new Button
+            {
+                Text = "📌",
+                FlatStyle = FlatStyle.Flat,
+                Size = new Size(30, 30),
+                ForeColor = isPinned ? Color.LimeGreen : Color.Gray,
+                BackColor = Color.FromArgb(70, 70, 70),
+                Location = new Point(this.Width - 70, 5), // Position pin button near close button
+                Cursor = Cursors.Hand
+            };
+            pinButton.FlatAppearance.BorderSize = 0;
+            pinButton.Click += TogglePinState;
+            this.Controls.Add(pinButton);
+
+            // Enable dragging from any point on the form
+            this.MouseDown += Form_MouseDown;
+
+            // Change background color when the window is activated or deactivated
+            this.Activated += (s, e) => this.BackColor = Color.FromArgb(40, 40, 40); // Darker color when active
+            this.Deactivate += (s, e) => this.BackColor = Color.FromArgb(50, 50, 50); // Lighter color when inactive
+
+            // Load shortcuts from a specific folder and add directly to the form
+            LoadShortcutsFromFolder(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Custom_Toolbar"));
+        }
+
+        private void TogglePinState(object sender, EventArgs e)
+        {
+            // Toggle "Always on Top" state and update pin button color
+            isPinned = !isPinned;
+            this.TopMost = isPinned;
+            pinButton.ForeColor = isPinned ? Color.LimeGreen : Color.Gray;
+        }
+
+        private void LoadShortcutsFromFolder(string folderPath)
+        {
+            // Ensure the folder exists
+            if (!Directory.Exists(folderPath))
+            {
+                Directory.CreateDirectory(folderPath);
+            }
+
+            shortcuts = new List<string>();
+            shortcuts.AddRange(Directory.GetFiles(folderPath, "*.lnk"));
+            shortcuts.AddRange(Directory.GetFiles(folderPath, "*.exe"));
+
+            int topOffset = 50; // Starting position below the close and pin buttons with padding
+
+            foreach (var shortcut in shortcuts)
+            {
+                // Create button for each shortcut
+                Button shortcutButton = new Button
+                {
+                    Text = Path.GetFileNameWithoutExtension(shortcut),
+                    Size = new Size(110, 90), // Adjusted width and height for better icon display
+                    FlatStyle = FlatStyle.Flat,
+                    BackColor = Color.FromArgb(40, 40, 40),
+                    ForeColor = Color.White,
+                    Cursor = Cursors.Hand,
+                    TextAlign = ContentAlignment.BottomCenter,
+                    Font = new Font("Arial", 8, FontStyle.Regular),
+                    Location = new Point(10, topOffset) // Padding on the left side
+                };
+                shortcutButton.FlatAppearance.BorderSize = 0;
+                shortcutButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(60, 60, 60);
+
+                // Load icon from each shortcut path
+                try
+                {
+                    Icon icon = Icon.ExtractAssociatedIcon(shortcut);
+                    if (icon != null)
+                    {
+                        shortcutButton.Image = new Bitmap(icon.ToBitmap(), new Size(40, 40)); // Adjusted icon size
+                        shortcutButton.ImageAlign = ContentAlignment.TopCenter;
+                    }
+                }
+                catch
+                {
+                    shortcutButton.Image = new Bitmap(SystemIcons.Application.ToBitmap(), new Size(40, 40)); // Fallback icon size
+                    shortcutButton.ImageAlign = ContentAlignment.TopCenter;
+                }
+
+                // Handle clicking the shortcut button
+                shortcutButton.Click += (s, e) =>
+                {
+                    if (shortcut.EndsWith(".lnk"))
+                    {
+                        var shell = new WshShell();
+                        var link = (IWshShortcut)shell.CreateShortcut(shortcut);
+                        System.Diagnostics.Process.Start(link.TargetPath);
+                    }
+                    else
+                    {
+                        System.Diagnostics.Process.Start(shortcut);
+                    }
+                };
+
+                this.Controls.Add(shortcutButton); // Add button directly to form
+                topOffset += 95; // Increase vertical position for the next button
+            }
+        }
+
+        // Enable dragging from any point on the form
+        private void Form_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                ReleaseCapture();
+                SendMessage(Handle, WM_NCLBUTTONDOWN, HT_CAPTION, 0);
+            }
+        }
+
+        // Rounded corners using Windows API
+        [DllImport("Gdi32.dll", EntryPoint = "CreateRoundRectRgn")]
+        private static extern IntPtr CreateRoundRectRgn(int nLeftRect, int nTopRect, int nRightRect, int nBottomRect, int nWidthEllipse, int nHeightEllipse);
+
+        public const int WM_NCLBUTTONDOWN = 0xA1;
+        public const int HT_CAPTION = 0x2;
+
+        [DllImport("user32.dll")]
+        public static extern bool ReleaseCapture();
+
+        [DllImport("user32.dll")]
+        public static extern int SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
+    }
+}
