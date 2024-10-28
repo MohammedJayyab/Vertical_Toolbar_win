@@ -108,4 +108,4 @@ This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-**Note**: Replace `https://github.com/yourusername/VerticalToolbar.git` with the actual URL of your repository if you have one, and update any placeholders as needed.
+**Note**: Replace `https://github.com/MohammedJayyab/VerticalToolbar.git` with the actual URL of your repository if you have one, and update any placeholders as needed.
