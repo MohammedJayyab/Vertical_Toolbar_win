@@ -33,7 +33,7 @@ A customizable vertical toolbar for Windows that allows you to manage and launch
 1. **Clone or Download the Repository**:
    - If you have Git installed:
      ```bash
-     git clone https://github.com/yourusername/VerticalToolbar.git
+     git clone https://github.com/MohammedJayyab/VerticalToolbar.git
      ```
    - Or download the ZIP file from the repository and extract it.
 
